@@ -9,15 +9,13 @@ Hi Pun is a personal English ⇄ Hindi ⇄ Punjabi translator for iPhone. Type a
 ## Contents
 
 1. [Features](#features)
-2. [Setup](#setup)
-3. [Using Hi Pun](#using-hi-pun)
-4. [Costs and the credit meter](#costs-and-the-credit-meter)
-5. [Privacy](#privacy)
-6. [Updating the app](#updating-the-app)
-7. [Troubleshooting](#troubleshooting)
-8. [Known limitations](#known-limitations)
-9. [Files in this folder](#files-in-this-folder)
-10. [Release notes](#release-notes)
+2. [Using Hi Pun](#using-hi-pun)
+3. [Costs and the credit meter](#costs-and-the-credit-meter)
+4. [Privacy](#privacy)
+5. [Troubleshooting](#troubleshooting)
+6. [Known limitations](#known-limitations)
+7. [Files in this folder](#files-in-this-folder)
+8. [Release notes](#release-notes)
 
 ---
 
@@ -39,38 +37,6 @@ Hi Pun is a personal English ⇄ Hindi ⇄ Punjabi translator for iPhone. Type a
 | Credit meter | An estimate of the Anthropic credit you have left, shown at the top. |
 | Works offline | Word of the Day and Recent open without internet. Translating needs a connection. |
 | Light and dark mode | Follows your iPhone's appearance setting. |
-
----
-
-## Setup
-
-### 1. Claude API key
-
-1. Sign in at **console.anthropic.com**.
-2. Under **Billing**, add some credit (for example, $5).
-3. Under **Limits**, set a monthly spend limit.
-4. Under **API Keys**, create a key and copy it. It starts with `sk-ant-`.
-
-### 2. Put the app online (GitHub Pages, free)
-
-1. Create a **public** repository named `hi-pun` on github.com.
-2. Upload **all** the files from this folder: open the repository, choose **Add file → Upload files**, drag the files in and commit.
-3. Go to **Settings → Pages** and set the source to *Deploy from a branch*, branch **main**, folder **/ (root)**. Save.
-4. After about a minute the app is live at **https://thomasraph.github.io/hi-pun/**.
-
-Your API key is not in any of these files, so a public repository is safe.
-
-### 3. Install on iPhone
-
-1. Open the link in **Safari**.
-2. Tap **Share** (the square with an arrow), then **Add to Home Screen**, then **Add**. Hi Pun shows this tip at the top until it's installed.
-3. From now on, open Hi Pun from its home-screen icon. It runs full screen, without Safari's bar.
-
-### 4. First launch
-
-1. Tap **Add key** and paste your `sk-ant-` key.
-2. Enter your current **credit balance** from the Anthropic console's Billing page.
-3. Tap **Save**. You're ready.
 
 ---
 
@@ -109,12 +75,6 @@ Each of these sends one request to Claude (model: `claude-sonnet-5-5`) and uses 
 - Your API key, credit figures, Recent phrases and saved Word of the Day breakdowns are stored **only on your iPhone**, inside the app.
 - Phrases you translate are sent directly from your phone to Anthropic's API. Nothing passes through any other server.
 - **Settings → Remove key** deletes the key from the phone.
-
----
-
-## Updating the app
-
-Upload the new files to the same `hi-pun` GitHub repository, replacing the old ones. The installed app picks up the update the next time it opens with internet. If it still looks old, close it fully and open it again.
 
 ---
 
