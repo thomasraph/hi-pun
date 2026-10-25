@@ -1,0 +1,863 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0e6b66">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Hi Pun">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>html{-webkit-text-size-adjust:100%}body{margin:0}img{max-width:100%}[hidden]{display:none!important}
+.meter{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:6px 11px;font-size:.85rem;font-weight:600;background:var(--teal-soft);color:var(--teal);font-variant-numeric:tabular-nums;margin-left:auto}
+.meter svg{width:15px;height:15px}
+.meter[data-level="warn"]{background:var(--marigold-soft);color:var(--marigold)}
+.meter[data-level="low"]{background:var(--raised);color:var(--err);box-shadow:inset 0 0 0 1.5px var(--err)}
+.credit-box{border-top:1px solid var(--line);padding-top:12px;margin-top:4px;display:flex;flex-direction:column;gap:8px}
+.credit-row{display:flex;align-items:center;gap:8px}
+.credit-row .cur{font-weight:600;color:var(--muted);font-size:1.1rem}
+.credit-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.stat{background:var(--raised);border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;min-width:0}
+.stat b{font-size:1.05rem;font-variant-numeric:tabular-nums}
+.stat span{font-size:.68rem;color:var(--faint);font-family:var(--mono);letter-spacing:.06em;text-transform:uppercase}
+.adv summary{cursor:pointer;color:var(--muted);font-size:.88rem}
+.price-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;font-size:.9rem;color:var(--muted)}
+.price-row input{max-width:110px}
+.sheet{max-height:calc(100dvh - 32px);overflow-y:auto}
+
+.install{display:flex;align-items:center;gap:10px;background:var(--surface);border-radius:16px;box-shadow:var(--shadow);padding:10px 12px;font-size:.92rem;color:var(--muted)}
+.install svg{width:20px;height:20px;flex:none;color:var(--teal)}
+.install span{flex:1;min-width:0}
+.install b{color:var(--ink)}
+</style>
+</head>
+<body>
+<title>Hi Pun</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rozha+One&family=Mukta:wght@400;500;600;700&family=Mukta+Mahee:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: phone-first single column. Word of the day → compose box → detection strip → language tabs → register stack, each card opening its own learn-more panel */
+:root{
+  --bg:#eef0ec; --surface:#ffffff; --raised:#f7f8f5; --ink:#162224; --muted:#5d6a69; --faint:#8d9897; --line:#dfe3dd;
+  --teal:#0e6b66; --teal-ink:#ffffff; --teal-soft:#dcefeb;
+  --marigold:#b8740a; --marigold-soft:#f8ead0;
+  --plum:#6b3f7a; --plum-soft:#efe3f3;
+  --err:#a3352b; --shadow:0 1px 2px rgba(22,34,36,.06),0 8px 24px -12px rgba(22,34,36,.18);
+  --display:"Rozha One","Mukta",Georgia,serif;
+  --body:"Mukta","Mukta Mahee","Noto Sans Devanagari","Noto Sans Gurmukhi",system-ui,sans-serif;
+  --gur:"Mukta Mahee","Mukta","Noto Sans Gurmukhi",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1617; --surface:#172123; --raised:#1d292b; --ink:#e8ece9; --muted:#9eaaa8; --faint:#6f7c7b; --line:#273436;
+  --teal:#5cc4bb; --teal-ink:#0f1617; --teal-soft:#16332f;
+  --marigold:#eaa944; --marigold-soft:#352914;
+  --plum:#c99bd8; --plum-soft:#2c2033;
+  --err:#f0897d; --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px -14px rgba(0,0,0,.6); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1617; --surface:#172123; --raised:#1d292b; --ink:#e8ece9; --muted:#9eaaa8; --faint:#6f7c7b; --line:#273436;
+  --teal:#5cc4bb; --teal-ink:#0f1617; --teal-soft:#16332f;
+  --marigold:#eaa944; --marigold-soft:#352914;
+  --plum:#c99bd8; --plum-soft:#2c2033;
+  --err:#f0897d; --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px -14px rgba(0,0,0,.6); color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.wrap{max-width:640px;margin:0 auto;padding-inline:16px;padding-block:20px 56px;display:flex;flex-direction:column;gap:18px}
+button{font:inherit;color:inherit;cursor:pointer;background:none;border:0;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+button:focus-visible,textarea:focus-visible{outline:2px solid var(--teal);outline-offset:2px;border-radius:10px}
+.pa{font-family:var(--gur)}
+
+/* Header */
+header{display:flex;align-items:center;gap:8px}
+header .brand{margin-right:auto}
+.brand{display:flex;align-items:baseline;gap:10px}
+.brand h1{font-family:var(--display);font-weight:400;font-size:2rem;line-height:1;margin:0}
+.brand .scripts{font-size:1rem;color:var(--muted)}
+.brand .dot{color:var(--marigold);margin-inline:4px}
+.kicker{font-family:var(--mono);font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+
+/* Compose */
+.compose{background:var(--surface);border-radius:20px;box-shadow:var(--shadow);padding:16px 16px 12px;display:flex;flex-direction:column;gap:10px}
+textarea{width:100%;min-height:84px;max-height:240px;resize:none;border:0;background:transparent;color:var(--ink);font:inherit;font-size:1.25rem;line-height:1.4;outline:none;padding:0}
+textarea::placeholder{color:var(--faint)}
+.compose-foot{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:4px 10px;font-size:.8rem;font-weight:500;background:var(--raised);color:var(--muted);transition:background .2s,color .2s}
+.pill .led{width:7px;height:7px;border-radius:50%;background:var(--faint)}
+.pill[data-k="hi"]{background:var(--marigold-soft);color:var(--marigold)} .pill[data-k="hi"] .led{background:var(--marigold)}
+.pill[data-k="pa"]{background:var(--plum-soft);color:var(--plum)} .pill[data-k="pa"] .led{background:var(--plum)}
+.pill[data-k="en"]{background:var(--teal-soft);color:var(--teal)} .pill[data-k="en"] .led{background:var(--teal)}
+.count{font-family:var(--mono);font-size:.7rem;color:var(--faint);margin-left:auto}
+.clear{font-size:.85rem;color:var(--muted);padding:6px 8px;border-radius:8px}
+.clear:hover{color:var(--ink)}
+.go{background:var(--teal);color:var(--teal-ink);font-weight:600;border-radius:999px;padding:9px 20px;display:inline-flex;align-items:center;gap:8px;transition:transform .12s,opacity .2s}
+.go:active{transform:scale(.97)}
+.go:disabled{opacity:.5;cursor:default}
+.go svg{width:16px;height:16px}
+
+.suggest{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+.suggest::-webkit-scrollbar{display:none}
+.suggest button{flex:none;border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:.85rem;color:var(--muted);background:var(--surface);white-space:nowrap}
+.suggest button:hover{color:var(--ink);border-color:var(--faint)}
+
+.status{font-size:.92rem;color:var(--muted);padding-inline:4px}
+.status.err{color:var(--err)}
+
+/* Result */
+.result{display:flex;flex-direction:column;gap:14px}
+.example-tag{align-self:flex-start;font-family:var(--mono);font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;color:var(--marigold);background:var(--marigold-soft);padding:3px 8px;border-radius:6px}
+.reading{background:var(--surface);border-radius:18px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;box-shadow:var(--shadow)}
+.reading .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.reading .label{font-family:var(--mono);font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.reading .meaning{font-size:1.2rem;font-weight:500;line-height:1.35}
+.reading .meaning-alt{font-size:.95rem;color:var(--muted)}
+.vibe{font-size:.8rem;padding:3px 9px;border-radius:999px;background:var(--raised);color:var(--muted)}
+.slang{display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line);padding-top:10px}
+.slang-item{display:flex;gap:10px;align-items:baseline;font-size:.92rem}
+.slang-item b{font-weight:600;white-space:nowrap}
+.slang-item span{color:var(--muted)}
+
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--surface);padding:4px;border-radius:14px;box-shadow:var(--shadow)}
+.tab{padding:9px 8px;border-radius:10px;font-weight:600;font-size:.95rem;color:var(--muted);display:flex;flex-direction:column;align-items:center;line-height:1.2;transition:background .2s,color .2s}
+.tab small{font-weight:400;font-size:.75rem;color:var(--faint)}
+.tab[aria-selected="true"][data-lang="hindi"]{background:var(--marigold-soft);color:var(--marigold)}
+.tab[aria-selected="true"][data-lang="punjabi"]{background:var(--plum-soft);color:var(--plum)}
+.tab[aria-selected="true"] small{color:inherit;opacity:.8}
+
+.stack{display:flex;flex-direction:column;gap:10px}
+.reg{background:var(--surface);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px;box-shadow:var(--shadow);position:relative;min-width:0}
+.reg::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:0 3px 3px 0;background:var(--rc)}
+.reg.casual{--rc:var(--teal)} .reg.formal{--rc:var(--marigold)} .reg.texting{--rc:var(--plum)}
+.reg-h{display:flex;align-items:center;gap:8px}
+.reg-h .name{font-family:var(--mono);font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--rc);font-weight:500}
+.reg-h .acts{margin-left:auto;display:flex;gap:2px}
+.icon-btn{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:var(--muted)}
+.icon-btn:hover{background:var(--raised);color:var(--ink)}
+.icon-btn svg{width:17px;height:17px}
+.icon-btn.ok{color:var(--teal)}
+.reg .script{font-size:1.45rem;line-height:1.35;font-weight:600;overflow-wrap:anywhere}
+.reg .roman{font-size:1rem;color:var(--muted);font-style:italic;overflow-wrap:anywhere}
+.reg .when{font-size:.85rem;color:var(--faint)}
+.reg.texting .script{font-family:var(--body);font-size:1.2rem}
+.bubble{align-self:flex-start;background:var(--plum-soft);color:var(--ink);padding:8px 12px;border-radius:16px 16px 16px 4px;max-width:100%}
+
+.note{font-size:.9rem;color:var(--muted);background:var(--raised);border-radius:12px;padding:10px 12px}
+
+.dive-btn{width:100%;border:1.5px dashed var(--line);border-radius:16px;padding:14px;font-weight:600;color:var(--teal);display:flex;align-items:center;justify-content:center;gap:8px}
+.dive-btn:hover{border-color:var(--teal);background:var(--teal-soft)}
+.dive-btn:disabled{opacity:.6;cursor:default}
+.dive{background:var(--surface);border-radius:18px;box-shadow:var(--shadow);padding:16px;display:flex;flex-direction:column;gap:18px}
+.dive-h{display:flex;align-items:center;justify-content:space-between}
+.dive-h h2{margin:0;font-family:var(--display);font-weight:400;font-size:1.3rem}
+.dive h3{margin:0 0 8px;font-family:var(--mono);font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:500}
+.words{display:flex;flex-direction:column}
+.word{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:4px 12px;padding:9px 0;border-bottom:1px solid var(--line)}
+.word:last-child{border-bottom:0}
+.word .w{font-weight:600;font-size:1.1rem;overflow-wrap:anywhere}
+.word .r{font-style:italic;color:var(--muted);font-size:.9rem}
+.word .m{font-size:.95rem;overflow-wrap:anywhere}
+.word .reg-tag{font-size:.75rem;color:var(--faint)}
+ul.pts{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:.95rem}
+.alts{display:flex;flex-direction:column;gap:8px}
+.alt{background:var(--raised);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column}
+.alt .s{font-weight:600;font-size:1.05rem}
+.alt .rr{font-style:italic;color:var(--muted);font-size:.9rem}
+.alt .ww{font-size:.85rem;color:var(--faint)}
+
+/* Per-section "learn more" */
+.icon-btn.learn{color:var(--rc,var(--wc))}
+.icon-btn.learn[aria-expanded="true"]{background:var(--raised)}
+.reg-dive,.wlearn{border-top:1px dashed var(--line);margin-top:8px;padding-top:12px;display:flex;flex-direction:column;gap:14px}
+.reg-dive h3,.wlearn h3{margin:0 0 6px;font-family:var(--mono);font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:500}
+.reg-dive .word{padding:7px 0}
+.tense{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.6fr);gap:2px 12px;padding:8px 0;border-bottom:1px solid var(--line)}
+.tense:last-child{border-bottom:0}
+.tense .t{font-size:.8rem;color:var(--muted);font-weight:500}
+.tense .s{font-weight:600;font-size:1.02rem;overflow-wrap:anywhere}
+.tense .r{font-style:italic;color:var(--muted);font-size:.86rem}
+.tense .e{font-size:.84rem;color:var(--faint)}
+.use{background:var(--raised);border-radius:12px;padding:9px 11px;display:flex;flex-direction:column;gap:1px}
+.use .s{font-weight:600} .use .r{font-style:italic;color:var(--muted);font-size:.88rem} .use .e{font-size:.88rem} .use .n{font-size:.8rem;color:var(--faint)}
+.uses{display:flex;flex-direction:column;gap:8px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chipw{background:var(--raised);border-radius:10px;padding:5px 10px;font-size:.88rem}
+.chipw b{font-weight:600}
+.chipw i{color:var(--muted)}
+.pos{font-family:var(--mono);font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;background:var(--ws);color:var(--wc);border-radius:6px;padding:2px 6px}
+.wcard .lang .acts{display:flex;gap:2px}
+
+/* Skeleton */
+.sk{background:linear-gradient(90deg,var(--raised) 0%,var(--line) 50%,var(--raised) 100%);background-size:200% 100%;border-radius:8px;animation:sh 1.3s linear infinite}
+@keyframes sh{from{background-position:200% 0}to{background-position:-200% 0}}
+.sk-card{background:var(--surface);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;box-shadow:var(--shadow)}
+
+/* Word of the day */
+.wotd-h{display:flex;align-items:baseline;justify-content:space-between;padding-inline:4px;margin-bottom:8px}
+.wotd-h h2{margin:0;font-family:var(--display);font-weight:400;font-size:1.2rem}
+.wotd{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:540px){.wotd{grid-template-columns:1fr}}
+.wcard{background:var(--surface);border-radius:18px;box-shadow:var(--shadow);padding:14px 16px;display:flex;flex-direction:column;gap:6px;min-width:0;position:relative;overflow:hidden}
+.wcard::after{content:"";position:absolute;inset:0 0 auto 0;height:4px;background:var(--wc)}
+.wcard.hi{--wc:var(--marigold);--ws:var(--marigold-soft)} .wcard.pa{--wc:var(--plum);--ws:var(--plum-soft)}
+.wcard .lang{font-family:var(--mono);font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;color:var(--wc);font-weight:500;display:flex;align-items:center;gap:6px}
+.wcard .lang .acts{margin-left:auto}
+.wcard .wword{font-size:2rem;line-height:1.15;font-weight:700;overflow-wrap:anywhere}
+.wcard .wroman{font-style:italic;color:var(--muted);margin-top:-2px}
+.wcard .wmean{font-weight:500}
+.wcard .wex{background:var(--ws);border-radius:12px;padding:9px 11px;display:flex;flex-direction:column;gap:1px;margin-top:4px}
+.wcard .wex .s{font-weight:600}
+.wcard .wex .r{font-style:italic;color:var(--muted);font-size:.9rem}
+.wcard .wex .m{font-size:.88rem;color:var(--muted)}
+.wcard .wtip{font-size:.84rem;color:var(--faint)}
+.practice{align-self:flex-start;margin-top:4px;font-size:.85rem;font-weight:600;color:var(--wc);border:1px solid var(--wc);border-radius:999px;padding:5px 12px}
+.practice:hover{background:var(--ws)}
+
+/* History */
+.hist{display:flex;flex-direction:column;gap:6px}
+.hist-h{display:flex;justify-content:space-between;align-items:center;padding-inline:4px}
+.hist-item{display:flex;flex-direction:column;align-items:flex-start;text-align:left;background:var(--surface);border-radius:12px;padding:10px 14px;gap:2px}
+.hist-item:hover{background:var(--raised)}
+.hist-item .a{font-weight:500}
+.hist-item .b{font-size:.85rem;color:var(--muted)}
+
+@media (prefers-reduced-motion:no-preference){
+  .fade{animation:fade .28s ease-out both}
+  @keyframes fade{from{opacity:.0001;transform:translateY(6px)}to{opacity:1;transform:none}}
+}
+@media (prefers-reduced-motion:reduce){.sk{animation:none}}
+
+.sheet-bg{position:fixed;inset:0;background:rgba(10,16,17,.45);display:flex;align-items:flex-end;justify-content:center;z-index:50;padding:16px}
+.sheet{background:var(--surface);color:var(--ink);border-radius:22px;box-shadow:var(--shadow);width:100%;max-width:520px;padding:20px 18px calc(18px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px}
+.sheet h2{margin:0;font-family:var(--display);font-weight:400;font-size:1.4rem}
+.sheet-p{margin:0;color:var(--muted);font-size:.95rem}
+.sheet-p.small{font-size:.85rem}
+.sheet a{color:var(--teal)}
+.sheet input{font:inherit;font-size:1rem;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--raised);color:var(--ink);width:100%}
+.sheet-row{display:flex;align-items:center;gap:8px;margin-top:4px}
+.sheet-row .spacer{flex:1}
+.sheet-msg{margin:0;font-size:.9rem;color:var(--teal)}
+.setup{background:var(--teal-soft);border-radius:18px;padding:14px 16px;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.setup b{display:block}
+.setup div span{color:var(--muted);font-size:.9rem}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <h1>Hi Pun</h1>
+      <span class="scripts">हिन्दी<span class="dot">·</span><span class="pa">ਪੰਜਾਬੀ</span></span>
+    </div>
+    <button class="meter" id="meter" hidden aria-label="Credit remaining"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M15 9.5c0-1.4-1.3-2-3-2s-3 .7-3 2 1.3 1.8 3 2.2 3 .9 3 2.3-1.3 2-3 2-3-.6-3-2"/></svg><span></span></button><button class="icon-btn" id="gear" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+  </header>
+
+  <div class="install" id="install" hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>
+    <span>Install on your iPhone: tap <b>Share</b>, then <b>Add to Home Screen</b>.</span>
+    <button class="clear" id="installX" aria-label="Dismiss">✕</button>
+  </div>
+  <div class="setup" id="setup" hidden><div><b>One-time setup</b><span>Add your Claude API key to start translating.</span></div><button class="go" id="setupBtn"><span>Add key</span></button></div>
+
+  <section aria-label="Word of the day">
+    <div class="wotd-h"><h2>Word of the day</h2><span class="kicker" id="wotdDate"></span></div>
+    <div class="wotd" id="wotd"></div>
+  </section>
+
+  <section class="compose">
+    <textarea id="input" rows="3" enterkeyhint="go" autocorrect="off" autocapitalize="sentences" placeholder="Say anything — English, हिन्दी, ਪੰਜਾਬੀ, Hinglish, or slang" aria-label="Phrase to translate"></textarea>
+    <div class="compose-foot">
+      <span class="pill" id="pill"><span class="led"></span><span id="pillText">Start typing</span></span>
+      <span class="count" id="count"></span>
+      <button class="clear" id="clear" hidden>Clear</button>
+      <button class="go" id="go"><span>Translate</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+    </div>
+  </section>
+
+  <div class="suggest" id="suggest">
+    <button>lowkey starving, wanna grab food?</button>
+    <button>kya scene hai aaj raat ka</button>
+    <button>ਸਤ ਸ੍ਰੀ ਅਕਾਲ ਜੀ, ਕੀ ਹਾਲ ਆ?</button>
+    <button>Hello uncle, how is the family?</button>
+    <button>मुझे थोड़ी देर हो जाएगी</button>
+    <button>Could you please send me the details?</button>
+    <button>no cap that was fire 🔥</button>
+  </div>
+
+  <div class="status" id="status" hidden></div>
+  <div id="out"></div>
+  <div class="hist" id="hist" hidden></div>
+</div>
+
+
+<div class="sheet-bg" id="sheetBg" hidden>
+  <section class="sheet" role="dialog" aria-labelledby="sheetTitle">
+    <h2 id="sheetTitle">Settings</h2>
+    <p class="sheet-p">Hi Pun talks to Claude using your own Anthropic API key. It's saved only on this phone.</p>
+    <label class="kicker" for="keyInput">Claude API key</label>
+    <input id="keyInput" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="sk-ant-...">
+    <p class="sheet-p small">Get one at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>. Set a monthly spend limit there so costs stay predictable.</p>
+    <div class="credit-box">
+      <label class="kicker" for="balInput">Credit balance (USD)</label>
+      <div class="credit-row"><span class="cur">$</span><input id="balInput" type="number" inputmode="decimal" min="0" step="0.01" placeholder="e.g. 10.00"></div>
+      <p class="sheet-p small">Copy the balance from Billing at <a href="https://console.anthropic.com/settings/billing" target="_blank" rel="noopener">console.anthropic.com</a>. Hi Pun subtracts each request's cost as you go. Re-enter it whenever you top up or want to re-sync.</p>
+      <div class="credit-stats" id="creditStats"></div>
+      <details class="adv"><summary>Model prices</summary>
+        <div class="price-row"><label for="pIn">Input $/M tokens</label><input id="pIn" type="number" inputmode="decimal" min="0" step="0.01"></div>
+        <div class="price-row"><label for="pOut">Output $/M tokens</label><input id="pOut" type="number" inputmode="decimal" min="0" step="0.01"></div>
+        <p class="sheet-p small">Only change these if Anthropic's pricing for Sonnet 5.5 changes.</p>
+      </details>
+    </div>
+    <div class="sheet-row">
+      <button class="clear" id="keyRemove">Remove key</button>
+      <span class="spacer"></span>
+      <button class="clear" id="sheetClose">Cancel</button>
+      <button class="go" id="keySave"><span>Save</span></button>
+    </div>
+    <p class="sheet-msg" id="sheetMsg" hidden></p>
+    <p class="sheet-p small" style="text-align:center;color:var(--faint)">Hi Pun 1.0.0 · October 25, 2026</p>
+  </section>
+</div>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+/* ---------- Claude API (direct from this phone, your own key) ---------- */
+const MODEL = "claude-sonnet-5-5";
+/* Credit meter: the API can't report your balance, so Hi Pun tracks spend from each reply's token counts. */
+const DEFAULT_PRICE = { in: 2.00, out: 10.00 }; // USD per million tokens; check console.anthropic.com
+function lsGet(k, d){ try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } }
+function lsSet(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+function credit(){ return lsGet("bolo-credit", { balance: null, spent: 0, requests: 0, price: DEFAULT_PRICE, syncedAt: null }); }
+function saveCredit(c){ lsSet("bolo-credit", c); updateMeter(); }
+function recordUsage(u){
+  if (!u) return; const c = credit(), pr = c.price || DEFAULT_PRICE;
+  const cost = ((u.input_tokens || 0) + (u.cache_creation_input_tokens || 0)) * pr.in / 1e6 + (u.cache_read_input_tokens || 0) * pr.in * 0.1 / 1e6 + (u.output_tokens || 0) * pr.out / 1e6;
+  c.spent += cost; c.requests += 1; c.last = cost; saveCredit(c);
+}
+const money = n => (n < 0 ? "-$" : "$") + Math.abs(n).toFixed(2);
+function updateMeter(){
+  const m = document.getElementById("meter"); if (!m) return;
+  const c = credit();
+  if (!getKey()) { m.hidden = true; return; }
+  m.hidden = false;
+  if (c.balance === null) { m.dataset.level = ""; m.querySelector("span").textContent = c.requests ? money(c.spent) + " used" : "Set credit"; return; }
+  const left = c.balance - c.spent;
+  m.dataset.level = left < 0.25 ? "low" : left < 1 ? "warn" : "";
+  m.querySelector("span").textContent = "≈ " + money(left) + " left";
+}
+function getKey(){ try { return localStorage.getItem("bolo-api-key") || ""; } catch { return ""; } }
+function setKey(k){ try { k ? localStorage.setItem("bolo-api-key", k) : localStorage.removeItem("bolo-api-key"); } catch {} }
+function parseJSON(text){
+  try { return JSON.parse(text); } catch {}
+  const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/); if (fence) { try { return JSON.parse(fence[1]); } catch {} }
+  const a = text.search(/[\[{]/), b = Math.max(text.lastIndexOf("}"), text.lastIndexOf("]"));
+  if (a >= 0 && b > a) { try { return JSON.parse(text.slice(a, b + 1)); } catch {} }
+  throw { code: "invalid_json" };
+}
+async function callClaude(prompt){
+  const key = getKey();
+  if (!key) { openSettings(); throw { code: "no_key" }; }
+  if (!navigator.onLine) throw { code: "offline" };
+  let res;
+  try {
+    res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+      body: JSON.stringify({ model: MODEL, max_tokens: 4000, messages: [{ role: "user", content: prompt + "\n\nYour reply is parsed by a program: output only the JSON, no other text." }] })
+    });
+  } catch { throw { code: "offline" }; }
+  if (res.status === 401 || res.status === 403) throw { code: "bad_key" };
+  if (res.status === 402) throw { code: "billing" };
+  if (res.status === 429) throw { code: "rate_limited" };
+  if (!res.ok) { let m = ""; try { m = (await res.json()).error?.message || ""; } catch {} if (/credit|billing/i.test(m)) throw { code: "billing" }; throw { code: "upstream_error" }; }
+  const data = await res.json();
+  recordUsage(data.usage);
+  const text = (data.content || []).filter(c => c.type === "text").map(c => c.text).join("");
+  if (data.stop_reason === "refusal") throw { code: "refused" };
+  return text;
+}
+const sampleApi = async p => ({ text: await callClaude(p), truncated: false });
+sampleApi.json = async p => parseJSON(await callClaude(p));
+const samplePromise = Promise.resolve(sampleApi);
+const ICON = {
+  copy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>',
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  speak:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4h4l5 4V6L8 10H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg>',
+  learn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5.5A1.5 1.5 0 0 1 3.5 4H9a3 3 0 0 1 3 3v13a2.5 2.5 0 0 0-2.5-2.5h-6A1.5 1.5 0 0 1 2 16z"/><path d="M22 5.5A1.5 1.5 0 0 0 20.5 4H15a3 3 0 0 0-3 3v13a2.5 2.5 0 0 1 2.5-2.5h6a1.5 1.5 0 0 0 1.5-1.5z"/></svg>',
+  spark:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6"/></svg>'
+};
+
+let current = null, tab = "hindi";
+
+const EXAMPLE = {
+  example: true,
+  input: "lowkey starving, wanna grab food?",
+  detected: "English",
+  style: "Casual texting, Gen-Z slang",
+  english: { casual: "I'm kinda starving — want to grab food?", formal: "I'm quite hungry. Would you like to get something to eat?" },
+  slang: [{ term: "lowkey", meaning: "kind of, a little (said casually)" }, { term: "wanna", meaning: "want to" }],
+  hindi: {
+    casual: { script: "यार, बहुत भूख लगी है, कुछ खाने चलें?", roman: "yaar, bahut bhookh lagi hai, kuch khaane chalein?", when: "Friends, people your age" },
+    formal: { script: "मुझे काफ़ी भूख लगी है। क्या आप कुछ खाने चलना चाहेंगे?", roman: "mujhe kaafi bhookh lagi hai. kya aap kuch khaane chalna chaahenge?", when: "Colleagues, elders, someone you just met" },
+    texting: { script: "bhai bhook se mar raha hu 😩 khana chale?", roman: "", when: "WhatsApp / DMs with friends — Hinglish, dropped vowels, emoji" }
+  },
+  punjabi: {
+    casual: { script: "ਯਾਰ, ਬੜੀ ਭੁੱਖ ਲੱਗੀ ਆ, ਕੁਝ ਖਾਣ ਚੱਲੀਏ?", roman: "yaar, baṛi bhukkh laggi aa, kujh khaaṇ challiye?", when: "Friends, casual company" },
+    formal: { script: "ਮੈਨੂੰ ਕਾਫ਼ੀ ਭੁੱਖ ਲੱਗੀ ਹੈ। ਕੀ ਤੁਸੀਂ ਕੁਝ ਖਾਣ ਚੱਲੋਗੇ ਜੀ?", roman: "mainu kaafi bhukkh laggi hai. ki tusīṃ kujh khaaṇ challoge ji?", when: "Elders, respectful settings" },
+    texting: { script: "paaji bhukh naal haal maada aa 😭 khaan chaliye?", roman: "", when: "Texting friends — Punglish, very relaxed" }
+  },
+  note: "“Lowkey” has no direct equivalent; Hindi and Punjabi soften with “yaar”, “thoda”, or the tone of the sentence instead."
+};
+
+/* ---------- Detection pill (instant, on-device) ---------- */
+function guess(t){
+  const dev = (t.match(/[ऀ-ॿ]/g)||[]).length, gur = (t.match(/[਀-੿]/g)||[]).length, lat = (t.match(/[A-Za-z]/g)||[]).length;
+  if (!dev && !gur && !lat) return null;
+  if (dev >= gur && dev >= lat) return ["hi","Hindi · Devanagari"];
+  if (gur >= dev && gur >= lat) return ["pa","Punjabi · Gurmukhi"];
+  const w = t.toLowerCase();
+  if (/\b(sat sri akal|sat shri akal|waheguru|ki haal|kidda|tusi|tusin|paaji|bai ji|kiddan|ni|aa ji|haan ji|menu|mainu|tenu|saanu|chal|kithe|kiven|vadhiya)\b/.test(w)) return ["pa","Punjabi · romanized"];
+  if (/\b(kya|hai|nahi|nahin|kaise|yaar|bhai|accha|acha|theek|kar|raha|rahi|mujhe|tum|aap|hoon|hu|haan|scene|kuch)\b/.test(w)) return ["hi","Hindi · romanized"];
+  return ["en","English"];
+}
+function updatePill(){
+  const t = $("#input").value, g = guess(t);
+  $("#pill").dataset.k = g ? g[0] : "";
+  $("#pillText").textContent = g ? g[1] : "Start typing";
+  $("#count").textContent = t.length ? t.length + " chars" : "";
+  $("#clear").hidden = !t.length;
+  const ta = $("#input"); ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 240) + "px";
+}
+$("#input").addEventListener("input", updatePill);
+$("#input").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); translate(); } });
+$("#clear").onclick = () => { $("#input").value = ""; updatePill(); $("#input").focus(); };
+document.querySelectorAll("#suggest button").forEach(b => b.onclick = () => { $("#input").value = b.textContent; updatePill(); translate(); });
+$("#go").onclick = translate;
+
+function setStatus(msg, err){ const s = $("#status"); s.hidden = !msg; s.textContent = msg || ""; s.classList.toggle("err", !!err); }
+function copyFor(code){
+  return ({
+    not_granted: "Hi Pun needs permission to use Claude. Reload the page and choose Allow.",
+    sampling_disabled: "Claude isn't available on this account, so translations can't run here.",
+    rate_limited: "Too many requests right now. Wait a minute, then try again.",
+    session_expired: "You've been signed out of Claude. Sign in again, then retry.",
+    invalid_json: "The answer came back garbled. Tap Translate to try again.",
+    refused: "Claude declined to translate that. Try rewording it.",
+    no_key: "Add your Claude API key in Settings to start translating.",
+    bad_key: "That API key didn't work. Check it in Settings (tap the gear).",
+    billing: "Your Anthropic account is out of credit. Add credit at console.anthropic.com, then try again.",
+    offline: "You're offline. Word of the Day and Recent still work; translating needs internet."
+  })[code] || "Couldn't reach Claude. Tap Translate to try again.";
+}
+
+/* ---------- Translate ---------- */
+const TRANSLATE_PROMPT = text => `You are a native-level translator for English, Hindi and Punjabi (Punjabi as spoken in the Sikh community: Eastern/Indian Punjab and the Sikh diaspora, Gurmukhi script), fluent in how people ACTUALLY talk and text today: Gen-Z/internet slang, abbreviations (wyd, ngl, fr, tbh, idk), emoji meaning, Hinglish and Punglish code-mixing, and current Indian youth slang (scene, bhai, bro, chill, paaji, bai, op, fatte chak).
+
+Input: """${text}"""
+
+Tasks:
+1. "detected": the input's language — "English", "Hindi" or "Punjabi". Input may be native script, romanized (e.g. "kya scene hai" = Hindi, "ki haal aa" = Punjabi), or code-mixed; choose the dominant one.
+2. "style": 2-6 words on the input's tone/register (e.g. "Casual texting, Gen-Z slang", "Formal request", "Friendly Hinglish").
+3. "slang": every slang term, abbreviation, idiom or meaningful emoji in the input with its plain meaning. Empty array if none.
+4. "english": {"casual": how a native English speaker would say it naturally today, "formal": polite/professional version}.
+5. For BOTH "hindi" and "punjabi", three registers:
+   - "casual": spoken everyday, friends (tum/tu; tu/tusi relaxed). Native script.
+   - "formal": respectful (aap; tusīṃ + ji). Native script.
+   - "texting": exactly how a young person would type it on WhatsApp/Instagram today — romanized, Hinglish/Punglish mixing English words naturally, common shortenings (h for hai, nhi, kr, bht, k), emoji only where natural. Put this in "script"; leave "roman" as "".
+   For casual and formal give "roman" (readable romanization). Each gets "when": a few words on who/where to use it.
+   Translate meaning and vibe, not word-for-word. Carry slang over as the closest natural equivalent, not a literal translation.
+   PUNJABI RULES — always write Punjabi the way Sikh Punjabi speakers talk:
+   - Gurmukhi script only, never Shahmukhi.
+   - Greetings and farewells use ਸਤ ਸ੍ਰੀ ਅਕਾਲ (Sat Sri Akal). In religious or very formal Sikh settings, ਵਾਹਿਗੁਰੂ ਜੀ ਕਾ ਖ਼ਾਲਸਾ, ਵਾਹਿਗੁਰੂ ਜੀ ਕੀ ਫ਼ਤਿਹ. Thanks to God / "oh God" / "thank God" uses ਵਾਹਿਗੁਰੂ (Waheguru) or ਸ਼ੁਕਰ ਹੈ ਵਾਹਿਗੁਰੂ ਦਾ. "God willing" uses ਵਾਹਿਗੁਰੂ ਦੀ ਮਿਹਰ ਨਾਲ.
+   - Never use other religions' greetings or expressions in the Punjabi output (no Namaste, Ram Ram, Jai Shri Krishna, Assalamu alaikum, Khuda Hafiz, Inshallah, Bhagwan).
+   - Use ਜੀ as the respect marker; kinship terms like ਪਾਜੀ, ਭੈਣ ਜੀ, ਬਾਬਾ ਜੀ, ਬੀਬੀ ਜੀ as Sikh families use them.
+   - Prefer native Punjabi words over Hindi or Urdu loanwords where Sikh speakers would.
+   - The Hindi output is unaffected by these rules.
+   SPEAKER IS ALWAYS MALE: every first-person verb, adjective and participle in Hindi and Punjabi uses the masculine form (e.g. Hindi "main ja raha hoon", "main thak gaya", Punjabi "main ja reha haan", "main thakk gaya"). Never give feminine speaker forms or mention them. For the person being addressed, use masculine unless the input makes clear they are female (e.g. "sister", "aunty", "she", "behen", "bibi ji"), then match that.
+6. "note": 1-2 sentences on anything a learner should know (no direct equivalent, ambiguity, the listener's gender if it changed the verbs). "" if nothing.
+
+Reply with only JSON:
+{"detected":"","style":"","slang":[{"term":"","meaning":""}],"english":{"casual":"","formal":""},"hindi":{"casual":{"script":"","roman":"","when":""},"formal":{"script":"","roman":"","when":""},"texting":{"script":"","roman":"","when":""}},"punjabi":{"casual":{"script":"","roman":"","when":""},"formal":{"script":"","roman":"","when":""},"texting":{"script":"","roman":"","when":""}},"note":""}`;
+
+function skeleton(){
+  const card = w => `<div class="sk-card"><div class="sk" style="height:10px;width:70px"></div><div class="sk" style="height:22px;width:${w}%"></div><div class="sk" style="height:14px;width:${w-20}%"></div></div>`;
+  $("#out").innerHTML = `<div class="result"><div class="sk-card"><div class="sk" style="height:10px;width:90px"></div><div class="sk" style="height:20px;width:80%"></div></div><div class="sk" style="height:52px;border-radius:14px"></div>${card(85)}${card(75)}${card(65)}</div>`;
+}
+
+async function translate(){
+  const text = $("#input").value.trim();
+  if (!text) { setStatus("Type something to translate.", true); $("#input").focus(); return; }
+  const sample = await samplePromise;
+  if (!sample) { setStatus("Hi Pun translates through Claude, which isn't available in this view. Open it in the Claude app or on claude.ai.", true); return; }
+  $("#go").disabled = true; setStatus(""); const prev = current; skeleton();
+  try {
+    const r = await sample.json(TRANSLATE_PROMPT(text));
+    if (!r || !r.hindi || !r.punjabi || !r.english) throw { code: "invalid_json" };
+    r.input = text; current = r;
+    tab = r.detected === "Punjabi" ? "punjabi" : "hindi";
+    render(r); saveHist(r);
+  } catch (e) {
+    current = prev; if (prev) render(prev); else $("#out").innerHTML = "";
+    setStatus(copyFor(e && e.code), true);
+  } finally { $("#go").disabled = false; }
+}
+
+/* ---------- Speech (only when the device has a matching voice) ---------- */
+let voices = [];
+function loadVoices(){ try { voices = speechSynthesis.getVoices(); } catch { voices = []; } }
+try { loadVoices(); speechSynthesis.onvoiceschanged = () => { loadVoices(); if (current) render(current, true); }; } catch {}
+// iPhone Safari often skips the voiceschanged event, so check again shortly after load
+[400, 1500, 4000].forEach(t => setTimeout(() => { const n = voices.length; loadVoices(); if (voices.length !== n) { if (current) render(current, true); renderWotd(); } }, t));
+const voiceFor = lang => voices.find(v => v.lang && v.lang.toLowerCase().startsWith(lang === "hindi" ? "hi" : "pa"));
+function speak(text, lang){ try { const u = new SpeechSynthesisUtterance(text); const v = voiceFor(lang); if (v) { u.voice = v; u.lang = v.lang; } speechSynthesis.cancel(); speechSynthesis.speak(u); } catch {} }
+
+/* ---------- Render ---------- */
+const REG = { casual: "Casual", formal: "Formal", texting: "Texting" };
+function regCard(r, lang, kind){
+  const v = r[lang][kind] || {}, pa = lang === "punjabi" && kind !== "texting" ? "pa" : "";
+  const canSpeak = kind !== "texting" && !!voiceFor(lang);
+  const body = kind === "texting"
+    ? `<div class="script bubble">${esc(v.script)}</div>`
+    : `<div class="script ${pa}">${esc(v.script)}</div>${v.roman ? `<div class="roman">${esc(v.roman)}</div>` : ""}`;
+  return `<article class="reg ${kind}">
+    <div class="reg-h"><span class="name">${REG[kind]}</span>
+      <span class="acts">
+        ${canSpeak ? `<button class="icon-btn" data-speak="${esc(v.script)}" aria-label="Listen">${ICON.speak}</button>` : ""}
+        <button class="icon-btn" data-copy="${esc(v.script)}" aria-label="Copy">${ICON.copy}</button>
+        <button class="icon-btn learn" data-learn="${kind}" aria-label="Learn more about the ${REG[kind].toLowerCase()} version" aria-expanded="false">${ICON.learn}</button>
+      </span></div>
+    ${body}
+    ${v.when ? `<div class="when">${esc(v.when)}</div>` : ""}
+    <div class="reg-dive" hidden></div>
+  </article>`;
+}
+function render(r, quiet){
+  const name = tab === "hindi" ? "Hindi" : "Punjabi";
+  const isEn = r.detected === "English";
+  const meaning = isEn ? "" : `<div class="label">Means</div><div class="meaning">${esc(r.english.casual)}</div>${r.english.formal && r.english.formal !== r.english.casual ? `<div class="meaning-alt">Formal: ${esc(r.english.formal)}</div>` : ""}`;
+  const slang = (r.slang && r.slang.length) ? `<div class="slang"><div class="label">Slang &amp; shorthand</div>${r.slang.map(s => `<div class="slang-item"><b>${esc(s.term)}</b><span>${esc(s.meaning)}</span></div>`).join("")}</div>` : "";
+  $("#out").innerHTML = `<div class="result ${quiet ? "" : "fade"}">
+    ${r.example ? `<span class="example-tag">Example · type your own above</span>` : ""}
+    <section class="reading">
+      <div class="row"><span class="label">Read as</span><span class="pill" data-k="${isEn ? "en" : r.detected === "Hindi" ? "hi" : "pa"}"><span class="led"></span>${esc(r.detected)}</span>${r.style ? `<span class="vibe">${esc(r.style)}</span>` : ""}</div>
+      ${meaning}${slang}
+    </section>
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" data-lang="hindi" aria-selected="${tab === "hindi"}">Hindi<small>हिन्दी</small></button>
+      <button class="tab" role="tab" data-lang="punjabi" aria-selected="${tab === "punjabi"}">Punjabi<small class="pa">ਪੰਜਾਬੀ</small></button>
+    </div>
+    <div class="stack">${regCard(r, tab, "casual")}${regCard(r, tab, "formal")}${regCard(r, tab, "texting")}</div>
+    ${r.note ? `<div class="note">${esc(r.note)}</div>` : ""}
+  </div>`;
+  $("#out").querySelectorAll(".tab").forEach(b => b.onclick = () => { tab = b.dataset.lang; render(r, true); });
+  $("#out").querySelectorAll("[data-copy]").forEach(b => b.onclick = () => copyText(b));
+  $("#out").querySelectorAll("[data-speak]").forEach(b => b.onclick = () => speak(b.dataset.speak, tab));
+  $("#out").querySelectorAll("[data-learn]").forEach(b => {
+    const kind = b.dataset.learn, key = tab + "." + kind, card = b.closest(".reg");
+    b.onclick = () => learnReg(r, tab, kind, card, b);
+    if (r.open && r.open[key] && r.dives && r.dives[key]) { showRegDive(card, r.dives[key], tab, kind); b.setAttribute("aria-expanded", "true"); }
+  });
+}
+function copyText(b){
+  const done = () => { b.innerHTML = ICON.check; b.classList.add("ok"); setTimeout(() => { b.innerHTML = ICON.copy; b.classList.remove("ok"); }, 1300); };
+  const fallback = () => { const el = b.closest(".reg").querySelector(".script"); const rg = document.createRange(); rg.selectNodeContents(el); const s = getSelection(); s.removeAllRanges(); s.addRange(rg); };
+  try { navigator.clipboard.writeText(b.dataset.copy).then(done, fallback); } catch { fallback(); }
+}
+
+/* ---------- Learn more: one section at a time ---------- */
+const SIKH_RULES = `Keep everything in Sikh Punjabi usage: Gurmukhi only; Sat Sri Akal / Waheguru-based greetings and expressions; never other religions' greetings or expressions (Namaste, Ram Ram, Assalamu alaikum, Khuda Hafiz, Inshallah); "ji" and Sikh kinship terms for respect; Sikh etiquette (elders, Gurdwara, family) where relevant.`;
+const MALE_RULE = `The learner is male: every first-person form, example and alternative uses masculine speaker agreement. Explain gender agreement from the male speaker's side only; never list feminine speaker forms.`;
+const LANG_NAME = lang => lang === "hindi" ? "Hindi" : "Punjabi (as spoken in the Sikh community, Gurmukhi)";
+const DIVE_PROMPT = (r, lang, kind) => {
+  const v = r[lang][kind], L = LANG_NAME(lang);
+  const focus = {
+    casual: "the CASUAL version: everyday spoken, with friends and people your age",
+    formal: "the FORMAL version: respectful, for elders, strangers and work",
+    texting: "the TEXTING version: how young people type it on WhatsApp/Instagram, romanized and code-mixed"
+  }[kind];
+  const extra = kind === "texting"
+    ? `"words" covers every token as typed, including shortenings and English words (give the full spelling in "roman" and what it stands for in "meaning"). "pronunciation" becomes tips on how the shorthand is read aloud. "usage" covers texting etiquette: who you can text this way and when to switch to proper script.`
+    : `"words": each distinct word in native script. "pronunciation": 2-3 tips on tricky sounds (retroflex, aspiration, nasal vowels${lang === "punjabi" ? ", Punjabi tones" : ""}).`;
+  return `You are a friendly, modern ${L} tutor for an English-speaking adult learner.
+Phrase: "${r.input}" (meaning: "${r.english.casual}")
+Explain ONLY ${focus}:
+${v.script}${v.roman ? " (" + v.roman + ")" : ""}
+${lang === "punjabi" ? SIKH_RULES + "\n" : ""}${MALE_RULE}
+
+Reply with only JSON:
+{"words":[{"word":"","roman":"","meaning":""}],
+ "grammar":["2-4 short points specific to this version: pronoun level, verb agreement, word order, postpositions"],
+ "pronunciation":["..."],
+ "usage":["2-3 points: who to say this to, where, what tone it gives off"],
+ "alternatives":[{"script":"","roman":"","when":""}]}
+${extra}
+2-3 alternatives in the SAME register. One or two sentences per point.`;
+};
+async function learnReg(r, lang, kind, card, btn){
+  const box = card.querySelector(".reg-dive"), key = lang + "." + kind;
+  r.open = r.open || {}; r.dives = r.dives || {};
+  if (!box.hidden) { box.hidden = true; r.open[key] = false; btn.setAttribute("aria-expanded", "false"); return; }
+  btn.setAttribute("aria-expanded", "true"); r.open[key] = true;
+  if (r.dives[key]) { showRegDive(card, r.dives[key], lang, kind); return; }
+  const sample = await samplePromise;
+  box.hidden = false;
+  if (!sample) { box.innerHTML = `<div class="status err">Learn more runs through Claude, which isn't available in this view.</div>`; return; }
+  box.innerHTML = `<div class="sk" style="height:14px;width:40%"></div><div class="sk" style="height:12px;width:90%"></div><div class="sk" style="height:12px;width:75%"></div>`;
+  btn.disabled = true;
+  try {
+    const d = await sample.json(DIVE_PROMPT(r, lang, kind));
+    r.dives[key] = d;
+    if (card.isConnected && r.open[key]) showRegDive(card, d, lang, kind);
+  } catch (e) {
+    box.innerHTML = `<div class="status err">${esc(copyFor(e && e.code))}</div>`; r.open[key] = false;
+  } finally { btn.disabled = false; }
+}
+function showRegDive(card, d, lang, kind){
+  const box = card.querySelector(".reg-dive"), pa = lang === "punjabi" && kind !== "texting" ? "pa" : "";
+  const list = a => (a && a.length) ? `<ul class="pts">${a.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : "";
+  const sec = (t, html) => html ? `<div><h3>${t}</h3>${html}</div>` : "";
+  box.hidden = false;
+  box.innerHTML = `
+    ${sec(kind === "texting" ? "Decoding it" : "Word by word", `<div class="words">${(d.words||[]).map(w => `<div class="word"><div><div class="w ${pa}">${esc(w.word)}</div><div class="r">${esc(w.roman)}</div></div><div class="m">${esc(w.meaning)}</div></div>`).join("")}</div>`)}
+    ${sec("Grammar", list(d.grammar))}
+    ${sec(kind === "texting" ? "Reading it aloud" : "Pronunciation", list(d.pronunciation))}
+    ${sec("When to use it", list(d.usage))}
+    ${sec("Other ways to say it", `<div class="alts">${(d.alternatives||[]).map(a => `<div class="alt"><span class="s ${pa}">${esc(a.script)}</span>${a.roman ? `<span class="rr">${esc(a.roman)}</span>` : ""}<span class="ww">${esc(a.when)}</span></div>`).join("")}</div>`)}`;
+}
+
+/* ---------- Recent (this browser only) ---------- */
+function loadHist(){ try { return JSON.parse(localStorage.getItem("bolo-hist-v2") || "[]"); } catch { return []; } }
+function saveHist(r){
+  try { const clean = { ...r }; delete clean.dives; delete clean.open;
+    const h = loadHist().filter(x => x.input !== r.input); h.unshift(clean); localStorage.setItem("bolo-hist-v2", JSON.stringify(h.slice(0, 8))); } catch {}
+  showHist();
+}
+function showHist(){
+  const h = loadHist(), el = $("#hist");
+  if (!h.length) { el.hidden = true; return; }
+  el.hidden = false;
+  el.innerHTML = `<div class="hist-h"><span class="kicker">Recent</span><button class="clear" id="histClear">Clear</button></div>` +
+    h.map((x, i) => `<button class="hist-item" data-i="${i}"><span class="a">${esc(x.input)}</span><span class="b">${esc(x.detected === "English" ? x.hindi.casual.roman : x.english.casual)}</span></button>`).join("");
+  el.querySelectorAll(".hist-item").forEach(b => b.onclick = () => {
+    current = h[+b.dataset.i]; tab = current.detected === "Punjabi" ? "punjabi" : "hindi";
+    $("#input").value = current.input; updatePill(); render(current); setStatus(""); window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+  $("#histClear").onclick = () => { try { localStorage.removeItem("bolo-hist-v2"); } catch {} showHist(); };
+}
+
+/* ---------- Word of the day (curated, rotates daily, male-speaker examples) ---------- */
+// [word, roman, meaning, example, example roman, example meaning, tip, part of speech]
+const HI_WORDS = [
+ ["जुगाड़","jugaad","a clever makeshift fix","यह जुगाड़ काम कर गया!","yeh jugaad kaam kar gaya!","This hack actually worked!","Used with pride across India for any creative workaround."],
+ ["मज़ा","mazaa","fun, enjoyment","बहुत मज़ा आया।","bahut mazaa aaya.","That was so much fun.","Fun “comes” to you: mazaa aana, not mazaa karna."],
+ ["ज़रूर","zaroor","definitely, of course","मैं ज़रूर आऊँगा।","main zaroor aaoonga.","I'll definitely come.","A warm, polite yes to any invitation."],
+ ["धीरे","dheere","slowly","थोड़ा धीरे बोलिए।","thoda dheere boliye.","Please speak a little slower.","A lifesaver for learners. Boliye is the polite form."],
+ ["भूख","bhookh","hunger","मुझे भूख लगी है।","mujhe bhookh lagi hai.","I'm hungry.","Hunger “attaches” to you: mujhe … lagi hai."],
+ ["कोशिश","koshish","attempt, effort","मैं कोशिश करूँगा।","main koshish karoonga.","I'll try.","Koshish karna = to try."],
+ ["आराम","aaraam","rest, comfort","आराम से!","aaraam se!","Take it easy! / No rush!","Aaraam se also means “carefully” or “gently.”"],
+ ["जल्दी","jaldi","quickly, early","मुझे जल्दी निकलना है।","mujhe jaldi nikalna hai.","I need to head out early.","Jaldi karo! = Hurry up!"],
+ ["बारिश","baarish","rain","बाहर बारिश हो रही है।","baahar baarish ho rahi hai.","It's raining outside.","Baarish is feminine, so the verb is rahi."],
+ ["ख़ुश","khush","happy","मैं आज बहुत ख़ुश हूँ।","main aaj bahut khush hoon.","I'm really happy today.","Khush raho = stay happy, a common blessing."],
+ ["पसंद","pasand","liking, preference","मुझे यह गाना पसंद है।","mujhe yeh gaana pasand hai.","I like this song.","Liking works like hunger: mujhe … pasand hai."],
+ ["मुश्किल","mushkil","difficult","यह सवाल मुश्किल है।","yeh savaal mushkil hai.","This question is tough.","Koi mushkil nahin = no problem."],
+ ["शायद","shaayad","maybe, perhaps","शायद कल मिलेंगे।","shaayad kal milenge.","Maybe we'll meet tomorrow.","Goes at the start of the sentence."],
+ ["बिल्कुल","bilkul","absolutely","बिल्कुल सही!","bilkul sahi!","Absolutely right!","Bilkul nahin = absolutely not."],
+ ["याद","yaad","memory, remembering","तुम्हारी याद आई।","tumhaari yaad aayi.","I missed you.","Literally “your memory came.”"],
+ ["इंतज़ार","intezaar","waiting","मैं तुम्हारा इंतज़ार कर रहा हूँ।","main tumhaara intezaar kar raha hoon.","I'm waiting for you.","Intezaar karna = to wait."],
+ ["ठंड","thand","cold","आज बहुत ठंड है।","aaj bahut thand hai.","It's really cold today.","Thanda = cold (adjective), as in thanda paani."],
+ ["सफ़र","safar","journey, trip","सफ़र कैसा रहा?","safar kaisa raha?","How was the trip?","A standard question when someone arrives."],
+ ["कमाल","kamaal","amazing, a marvel","कमाल कर दिया!","kamaal kar diya!","You nailed it!","Big praise for anything impressive."],
+ ["चाय","chai","tea","एक कप चाय हो जाए?","ek cup chai ho jaaye?","How about a cup of tea?","Ho jaaye? is a friendly “shall we?”"],
+ ["धन्यवाद","dhanyavaad","thank you (formal)","आपकी मदद के लिए धन्यवाद।","aapki madad ke liye dhanyavaad.","Thank you for your help.","Shukriya is the everyday spoken alternative."],
+ ["मदद","madad","help","क्या आप मेरी मदद कर सकते हैं?","kya aap meri madad kar sakte hain?","Could you help me?","Madad karna = to help."],
+ ["ज़िंदगी","zindagi","life","ज़िंदगी बहुत छोटी है।","zindagi bahut chhoti hai.","Life is really short.","Feminine noun, so chhoti not chhota."],
+ ["हिम्मत","himmat","courage","हिम्मत मत हारो।","himmat mat haaro.","Don't lose heart.","Himmat waala = a brave guy."],
+ ["बहाना","bahaana","excuse","कोई बहाना नहीं चलेगा।","koi bahaana nahin chalega.","No excuses.","Bahaane banaana = to make excuses."],
+ ["पक्का","pakka","for sure, solid","पक्का? हाँ, पक्का!","pakka? haan, pakka!","For sure? Yes, for sure!","Also means ripe, or a firm promise."],
+ ["थकान","thakaan","tiredness","आज बहुत थकान है।","aaj bahut thakaan hai.","I'm wiped out today.","Main thak gaya = I got tired."],
+ ["दोस्त","dost","friend","वह मेरा पुराना दोस्त है।","vah mera puraana dost hai.","He's an old friend of mine.","Dosti = friendship."],
+ ["सपना","sapna","dream","कल रात अजीब सपना आया।","kal raat ajeeb sapna aaya.","I had a weird dream last night.","Dreams “come” in Hindi: sapna aana."],
+ ["ख़ुशबू","khushboo","fragrance","खाने की ख़ुशबू कमाल है।","khaane ki khushboo kamaal hai.","The food smells amazing.","Badboo is the opposite: a bad smell."]
+];
+const PA_WORDS = [
+ ["ਚੜ੍ਹਦੀ ਕਲਾ","chaṛhdī kalā","eternal optimism, high spirits","ਹਮੇਸ਼ਾ ਚੜ੍ਹਦੀ ਕਲਾ ਵਿੱਚ ਰਹੋ।","hameshā chaṛhdī kalā vich raho.","Always stay in high spirits.","A core Sikh ideal: staying positive whatever happens."],
+ ["ਸੇਵਾ","sevā","selfless service","ਮੈਂ ਗੁਰਦੁਆਰੇ ਸੇਵਾ ਕਰਨ ਜਾ ਰਿਹਾ ਹਾਂ।","maiṃ gurduāre sevā karan jā rihā hāṃ.","I'm going to do seva at the Gurdwara.","Service done without expecting anything back."],
+ ["ਲੰਗਰ","langar","community free kitchen","ਲੰਗਰ ਤਿਆਰ ਹੈ ਜੀ।","langar tiār hai jī.","Langar is ready.","Everyone sits together on the floor, whoever they are."],
+ ["ਵਧੀਆ","vadhīā","great, excellent","ਖਾਣਾ ਬਹੁਤ ਵਧੀਆ ਸੀ।","khāṇā bahut vadhīā sī.","The food was excellent.","Also the classic reply to “ki haal aa?”"],
+ ["ਯਾਰ","yār","buddy, close friend","ਉਹ ਮੇਰਾ ਪੱਕਾ ਯਾਰ ਹੈ।","uh merā pakkā yār hai.","He's my ride-or-die.","Pakkā yār = a true, solid friend."],
+ ["ਭੁੱਖ","bhukkh","hunger","ਮੈਨੂੰ ਬਹੁਤ ਭੁੱਖ ਲੱਗੀ ਹੈ।","mainū bahut bhukkh laggī hai.","I'm really hungry.","Note the doubled kk, held a beat longer."],
+ ["ਪਿਆਰ","piār","love","ਮਾਂ ਦਾ ਪਿਆਰ ਸਭ ਤੋਂ ਵੱਡਾ ਹੈ।","māṃ dā piār sabh toṃ vaḍḍā hai.","A mother's love is the greatest.","Piār nāl = lovingly, gently."],
+ ["ਹੌਲੀ","haulī","slowly","ਥੋੜ੍ਹਾ ਹੌਲੀ ਬੋਲੋ ਜੀ।","thoṛhā haulī bolo jī.","Please speak a bit slower.","Adding jī keeps it polite."],
+ ["ਛੇਤੀ","chhetī","quickly, soon","ਛੇਤੀ ਆ ਜਾ!","chhetī ā jā!","Come quick!","The Punjabi counterpart of Hindi jaldi."],
+ ["ਧੰਨਵਾਦ","dhannvād","thank you","ਤੁਹਾਡਾ ਬਹੁਤ ਧੰਨਵਾਦ ਜੀ।","tuhāḍā bahut dhannvād jī.","Thank you so much.","Polite and correct with anyone."],
+ ["ਮੀਂਹ","mīṃh","rain","ਬਾਹਰ ਮੀਂਹ ਪੈ ਰਿਹਾ ਹੈ।","bāhar mīṃh pai rihā hai.","It's raining outside.","Rain “falls” (painā) in Punjabi."],
+ ["ਠੰਢ","ṭhaṇḍh","cold","ਅੱਜ ਬੜੀ ਠੰਢ ਹੈ।","ajj baṛī ṭhaṇḍh hai.","It's really cold today.","Baṛī = very, a Punjabi favourite."],
+ ["ਖ਼ੁਸ਼","khush","happy","ਮੈਂ ਅੱਜ ਬਹੁਤ ਖ਼ੁਸ਼ ਹਾਂ।","maiṃ ajj bahut khush hāṃ.","I'm really happy today.","Hāṃ is Punjabi's “am” (Hindi hoon)."],
+ ["ਗੱਲ","gall","talk, matter","ਕੋਈ ਗੱਲ ਨਹੀਂ।","koī gall nahīṃ.","No worries.","Gallāṃ karnīāṃ = to chat."],
+ ["ਚਾਹ","chāh","tea","ਚਾਹ ਪੀਓਗੇ ਜੀ?","chāh pīoge jī?","Will you have some tea?","Offering tea is basic hospitality in a Punjabi home."],
+ ["ਸੋਹਣਾ","sohṇā","beautiful, handsome","ਮੌਸਮ ਬੜਾ ਸੋਹਣਾ ਹੈ।","mausam baṛā sohṇā hai.","The weather is lovely.","Sohṇī for feminine nouns."],
+ ["ਮਿਹਰ","mihar","grace, blessing","ਵਾਹਿਗੁਰੂ ਦੀ ਮਿਹਰ ਹੈ।","vāhigurū dī mihar hai.","It's all by Waheguru's grace.","A humble reply when someone asks how life is going."],
+ ["ਹਿੰਮਤ","himmat","courage","ਹਿੰਮਤ ਨਾ ਹਾਰੋ।","himmat nā hāro.","Don't lose heart.","Same root as the Hindi word."],
+ ["ਪਿੰਡ","piṇḍ","village, hometown","ਮੇਰਾ ਪਿੰਡ ਪੰਜਾਬ ਵਿੱਚ ਹੈ।","merā piṇḍ panjāb vich hai.","My village is in Punjab.","Many diaspora Sikhs still ask “tuhāḍā piṇḍ kehṛā?”"],
+ ["ਭੰਗੜਾ","bhangṛā","Punjabi folk dance","ਵਿਆਹ ਵਿੱਚ ਸਾਰਿਆਂ ਨੇ ਭੰਗੜਾ ਪਾਇਆ।","viāh vich sāriāṃ ne bhangṛā pāiā.","Everyone danced bhangra at the wedding.","You “put” bhangra: bhangṛā pāuṇā."],
+ ["ਚੱਕ ਦੇ","chakk de","go for it!","ਚੱਕ ਦੇ ਫੱਟੇ!","chakk de phaṭṭe!","Let's go! Smash it!","Hype phrase for sports, dancing, any big moment."],
+ ["ਸਬਰ","sabar","patience","ਥੋੜ੍ਹਾ ਸਬਰ ਕਰੋ ਜੀ।","thoṛhā sabar karo jī.","Please be a little patient.","Sabar karnā = to be patient."],
+ ["ਮਿੱਠਾ","miṭṭhā","sweet","ਇਹ ਲੱਡੂ ਬਹੁਤ ਮਿੱਠਾ ਹੈ।","ih laḍḍū bahut miṭṭhā hai.","This laddoo is really sweet.","Muṃh miṭṭhā karo = have a sweet (to celebrate)."],
+ ["ਸਵੇਰ","saver","morning","ਸਵੇਰੇ ਛੇਤੀ ਉੱਠਣਾ ਹੈ।","savere chhetī uṭṭhṇā hai.","I've got to get up early.","Amrit vela = the early hours before dawn, for prayer."],
+ ["ਪਰਿਵਾਰ","parivār","family","ਪਰਿਵਾਰ ਦਾ ਕੀ ਹਾਲ ਹੈ ਜੀ?","parivār dā kī hāl hai jī?","How is the family?","Asking about family is a respectful way to greet elders."],
+ ["ਨਿਮਰਤਾ","nimratā","humility","ਨਿਮਰਤਾ ਸਭ ਤੋਂ ਵੱਡਾ ਗੁਣ ਹੈ।","nimratā sabh toṃ vaḍḍā guṇ hai.","Humility is the greatest virtue.","A value stressed throughout Gurbani."],
+ ["ਸੰਗਤ","sangat","congregation, company","ਸੰਗਤ ਵਿੱਚ ਬੈਠ ਕੇ ਸਕੂਨ ਮਿਲਦਾ ਹੈ।","sangat vich baiṭh ke sakūn mildā hai.","Sitting with the sangat brings me peace.","Also means the company you keep."],
+ ["ਪੱਕਾ","pakkā","for sure","ਪੱਕਾ ਆਵਾਂਗਾ।","pakkā āvāṅgā.","I'll come, for sure.","Āvāṅgā is the male “I will come.”"],
+ ["ਕੰਮ","kamm","work, task","ਅੱਜ ਬਹੁਤ ਕੰਮ ਹੈ।","ajj bahut kamm hai.","I've got a lot of work today.","Kirat karnī: honest work, one of Sikhism's three pillars."],
+ ["ਘਰ","ghar","home","ਮੈਂ ਘਰ ਜਾ ਰਿਹਾ ਹਾਂ।","maiṃ ghar jā rihā hāṃ.","I'm heading home.","Rihā hāṃ = the male “am …-ing.”"]
+];
+const HI_VERBS = [
+ ["सीखना","seekhna","to learn","मैं हिंदी सीख रहा हूँ।","main hindi seekh raha hoon.","I'm learning Hindi.","Seekh is the stem; add raha hoon for “am …-ing.”","verb"],
+ ["बोलना","bolna","to speak, to say","मैं थोड़ी हिंदी बोलता हूँ।","main thodi hindi bolta hoon.","I speak a little Hindi.","Bolta hoon is the male “I speak.”","verb"],
+ ["समझना","samajhna","to understand","मैं समझ गया।","main samajh gaya.","Got it. / I understand.","Samajh gaya (lit. “understood-went”) is how people say “got it.”","verb"],
+ ["खाना","khaana","to eat (also: food)","मैंने अभी खाना खाया।","maine abhi khaana khaaya.","I just ate.","In the past tense the subject takes ne: maine.","verb"],
+ ["जाना","jaana","to go","मैं कल दिल्ली जाऊँगा।","main kal dilli jaaoonga.","I'll go to Delhi tomorrow.","Jaaoonga = male “I will go.”","verb"],
+ ["मिलना","milna","to meet, to get","आपसे मिलकर अच्छा लगा।","aapse milkar achchha laga.","Nice to meet you.","Milkar = “having met.” A must-know polite line.","verb"],
+ ["सोचना","sochna","to think","मैं सोच रहा था…","main soch raha tha…","I was thinking…","A soft way to suggest something.","verb"],
+ ["देखना","dekhna","to see, to watch","चलो फ़िल्म देखते हैं।","chalo film dekhte hain.","Let's watch a movie.","Dekhte hain also means “we'll see.”","verb"],
+ ["चलना","chalna","to walk, to go, to work","चलो, चलते हैं!","chalo, chalte hain!","Come on, let's head out!","Chalega = “that works / fine by me.”","verb"],
+ ["करना","karna","to do, to make","मैं क्या करूँ?","main kya karoon?","What should I do?","Pairs with nouns to make verbs: kaam karna, baat karna.","verb"]
+];
+const PA_VERBS = [
+ ["ਸਿੱਖਣਾ","sikkhṇā","to learn","ਮੈਂ ਪੰਜਾਬੀ ਸਿੱਖ ਰਿਹਾ ਹਾਂ।","maiṃ panjābī sikkh rihā hāṃ.","I'm learning Punjabi.","Sikkh is also the root of “Sikh”: a learner, a disciple.","verb"],
+ ["ਬੋਲਣਾ","bolṇā","to speak, to say","ਮੈਂ ਥੋੜ੍ਹੀ ਪੰਜਾਬੀ ਬੋਲਦਾ ਹਾਂ।","maiṃ thoṛhī panjābī boldā hāṃ.","I speak a little Punjabi.","Boldā hāṃ = male “I speak.”","verb"],
+ ["ਸਮਝਣਾ","samajhṇā","to understand","ਮੈਂ ਸਮਝ ਗਿਆ।","maiṃ samajh giā.","Got it. / I understand.","Giā is the Punjabi “went,” like Hindi gaya.","verb"],
+ ["ਖਾਣਾ","khāṇā","to eat (also: food)","ਮੈਂ ਖਾਣਾ ਖਾ ਲਿਆ ਹੈ।","maiṃ khāṇā khā liā hai.","I've already eaten.","Khā liā = “ate up / have eaten.”","verb"],
+ ["ਜਾਣਾ","jāṇā","to go","ਮੈਂ ਕੱਲ੍ਹ ਅੰਮ੍ਰਿਤਸਰ ਜਾਵਾਂਗਾ।","maiṃ kallh amritsar jāvāṅgā.","I'll go to Amritsar tomorrow.","Jāvāṅgā = male “I will go.”","verb"],
+ ["ਮਿਲਣਾ","milṇā","to meet, to get","ਤੁਹਾਨੂੰ ਮਿਲ ਕੇ ਬਹੁਤ ਚੰਗਾ ਲੱਗਿਆ ਜੀ।","tuhānū mil ke bahut changā laggiā jī.","Really nice to meet you.","Mil ke = “having met.”","verb"],
+ ["ਸੋਚਣਾ","sochṇā","to think","ਮੈਂ ਸੋਚ ਰਿਹਾ ਸੀ…","maiṃ soch rihā sī…","I was thinking…","Sī is Punjabi “was” (Hindi tha).","verb"],
+ ["ਵੇਖਣਾ","vekhṇā","to see, to watch","ਚੱਲੋ ਫ਼ਿਲਮ ਵੇਖੀਏ।","challo film vekhīe.","Let's watch a movie.","Vekhīe = “let's watch.” Dekhṇā is also heard.","verb"],
+ ["ਕਰਨਾ","karnā","to do, to make","ਮੈਂ ਕੀ ਕਰਾਂ?","maiṃ kī karāṃ?","What should I do?","Pairs with nouns: sevā karnī, gall karnī.","verb"],
+ ["ਆਉਣਾ","āuṇā","to come","ਮੈਂ ਹੁਣੇ ਆਇਆ।","maiṃ huṇe āiā.","Be right there!","Literally “I just came,” said while you're still on your way.","verb"]
+];
+// Mix a verb in after every two other words so verbs come up often
+function mix(base, verbs){ const out = []; let v = 0; base.forEach((w, i) => { out.push(w); if (i % 2 === 1 && v < verbs.length) out.push(verbs[v++]); }); while (v < verbs.length) out.push(verbs[v++]); return out; }
+const HI_DAILY = mix(HI_WORDS, HI_VERBS), PA_DAILY = mix(PA_WORDS, PA_VERBS);
+
+const WOTD_PROMPT = (w, lang) => `You are a ${LANG_NAME(lang)} teacher for an English-speaking adult learner.
+Word of the day: ${w[0]} (${w[1]}) = "${w[2]}"${w[7] ? " [" + w[7] + "]" : ""}
+${lang === "punjabi" ? SIKH_RULES + "\n" : ""}${MALE_RULE}
+
+Reply with only JSON:
+{"pos":"verb|noun|adjective|adverb|phrase|interjection",
+ "tenses":[{"tense":"","script":"","roman":"","english":""}],
+ "forms":[{"label":"","script":"","roman":""}],
+ "uses":[{"script":"","roman":"","english":"","note":""}],
+ "related":[{"script":"","roman":"","meaning":""}],
+ "tip":""}
+If it is a VERB, "tenses" is a short first-person ("I …", male) sentence for each of: Present (I do), Present continuous (I am doing), Habitual past (I used to), Simple past (I did), Past continuous (I was doing), Present perfect (I have done), Future (I will), Can (I can), Want to (I want to), Command casual (${lang === "punjabi" ? "tu/tusīṃ" : "tum"}), Command polite (${lang === "punjabi" ? "tusīṃ … jī" : "aap"}). Use the same object/context in every row so the verb change is easy to see. "forms" is [].
+If it is NOT a verb, "tenses" is [] and "forms" lists its useful forms (plural, oblique, feminine/masculine adjective forms, related adverb) — empty if none apply.
+"uses": 4-6 of the most common real-life expressions/collocations with this word, as natural sentences, each with a short note on when people say it. "related": 2-4 related or opposite words. "tip": one sentence on culture or a common mistake.`;
+
+function wotdCacheKey(w, lang){ return "hipun-wotd-" + lang + "-" + w[1]; }
+function readWotdCache(w, lang){ try { return JSON.parse(localStorage.getItem(wotdCacheKey(w, lang)) || "null"); } catch { return null; } }
+function writeWotdCache(w, lang, d){ try { localStorage.setItem(wotdCacheKey(w, lang), JSON.stringify(d)); } catch {} }
+async function learnWord(w, lang, card, btn){
+  const box = card.querySelector(".wlearn");
+  if (!box.hidden) { box.hidden = true; btn.setAttribute("aria-expanded", "false"); return; }
+  box.hidden = false; btn.setAttribute("aria-expanded", "true");
+  const cached = readWotdCache(w, lang);
+  if (cached) { showWordLearn(box, cached, lang); return; }
+  const sample = await samplePromise;
+  if (!sample) { box.innerHTML = `<div class="status err">Learn more runs through Claude, which isn't available in this view.</div>`; return; }
+  box.innerHTML = `<div class="sk" style="height:14px;width:40%"></div><div class="sk" style="height:12px;width:90%"></div><div class="sk" style="height:12px;width:80%"></div><div class="sk" style="height:12px;width:70%"></div>`;
+  btn.disabled = true;
+  try {
+    const d = await sample.json(WOTD_PROMPT(w, lang));
+    writeWotdCache(w, lang, d);
+    if (!box.hidden) showWordLearn(box, d, lang);
+  } catch (e) { box.innerHTML = `<div class="status err">${esc(copyFor(e && e.code))}</div>`; }
+  finally { btn.disabled = false; }
+}
+function showWordLearn(box, d, lang){
+  const f = lang === "punjabi" ? "pa" : "";
+  const sec = (t, html) => html ? `<div><h3>${t}</h3>${html}</div>` : "";
+  const tenses = (d.tenses && d.tenses.length) ? `<div>${d.tenses.map(t => `<div class="tense"><div class="t">${esc(t.tense)}</div><div><div class="s ${f}">${esc(t.script)}</div><div class="r">${esc(t.roman)}</div><div class="e">${esc(t.english)}</div></div></div>`).join("")}</div>` : "";
+  const forms = (d.forms && d.forms.length) ? `<div class="chips">${d.forms.map(x => `<span class="chipw"><i>${esc(x.label)}:</i> <b class="${f}">${esc(x.script)}</b> <i>${esc(x.roman)}</i></span>`).join("")}</div>` : "";
+  const uses = (d.uses && d.uses.length) ? `<div class="uses">${d.uses.map(u => `<div class="use"><span class="s ${f}">${esc(u.script)}</span><span class="r">${esc(u.roman)}</span><span class="e">${esc(u.english)}</span>${u.note ? `<span class="n">${esc(u.note)}</span>` : ""}</div>`).join("")}</div>` : "";
+  const related = (d.related && d.related.length) ? `<div class="chips">${d.related.map(x => `<span class="chipw"><b class="${f}">${esc(x.script)}</b> <i>${esc(x.roman)}</i> · ${esc(x.meaning)}</span>`).join("")}</div>` : "";
+  box.innerHTML = sec("Tenses", tenses) + sec("Forms", forms) + sec("Common ways to use it", uses) + sec("Related words", related) + (d.tip ? `<div class="note">${esc(d.tip)}</div>` : "");
+}
+
+function wcard(w, lang){
+  const isPa = lang === "punjabi", cls = isPa ? "pa" : "hi", f = isPa ? "pa" : "";
+  const canSpeak = !!voiceFor(lang);
+  return `<article class="wcard ${cls}">
+    <div class="lang">${isPa ? "Punjabi · ਪੰਜਾਬੀ" : "Hindi · हिन्दी"}<span class="acts">
+      ${canSpeak ? `<button class="icon-btn" data-wspeak="${esc(w[0])}" data-wlang="${lang}" aria-label="Listen">${ICON.speak}</button>` : ""}
+      <button class="icon-btn learn" data-wlearn="${lang}" aria-label="Learn more about this word" aria-expanded="false">${ICON.learn}</button></span></div>
+    <div class="wword ${f}">${esc(w[0])}</div>${w[7] ? `<span class="pos" style="align-self:flex-start">${esc(w[7])}</span>` : ""}
+    <div class="wroman">${esc(w[1])}</div>
+    <div class="wmean">${esc(w[2])}</div>
+    <div class="wex"><span class="s ${f}">${esc(w[3])}</span><span class="r">${esc(w[4])}</span><span class="m">${esc(w[5])}</span></div>
+    <div class="wtip">${esc(w[6])}</div>
+    <button class="practice" data-practice="${esc(w[3])}">Break down this sentence</button>
+    <div class="wlearn" hidden></div>
+  </article>`;
+}
+function renderWotd(){
+  const now = new Date();
+  const day = Math.floor(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 86400000);
+  const hi = HI_DAILY[day % HI_DAILY.length], pa = PA_DAILY[(day * 7 + 3) % PA_DAILY.length];
+  $("#wotdDate").textContent = now.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+  $("#wotd").innerHTML = wcard(hi, "hindi") + wcard(pa, "punjabi");
+  $("#wotd").querySelectorAll("[data-wspeak]").forEach(b => b.onclick = () => speak(b.dataset.wspeak, b.dataset.wlang));
+  $("#wotd").querySelectorAll("[data-wlearn]").forEach(b => {
+    const lang = b.dataset.wlearn; b.onclick = () => learnWord(lang === "hindi" ? hi : pa, lang, b.closest(".wcard"), b);
+  });
+  $("#wotd").querySelectorAll("[data-practice]").forEach(b => b.onclick = () => {
+    $("#input").value = b.dataset.practice; updatePill(); translate();
+    $("#input").scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+}
+try { const prev = speechSynthesis.onvoiceschanged; speechSynthesis.onvoiceschanged = () => { if (prev) prev(); renderWotd(); }; } catch {}
+
+
+function fillCredit(){
+  const c = credit(), pr = c.price || DEFAULT_PRICE;
+  $("#balInput").value = c.balance === null ? "" : Math.max(0, c.balance - c.spent).toFixed(2);
+  $("#pIn").value = pr.in; $("#pOut").value = pr.out;
+  const avg = c.requests ? c.spent / c.requests : 0;
+  $("#creditStats").innerHTML = `<div class="stat"><b>${money(c.spent)}</b><span>Used${c.syncedAt ? " since sync" : ""}</span></div><div class="stat"><b>${c.requests}</b><span>Requests</span></div><div class="stat"><b>${c.requests ? "$" + avg.toFixed(3) : "—"}</b><span>Avg each</span></div>`;
+}
+function openSettings(){ fillCredit(); $("#keyInput").value = getKey(); $("#sheetMsg").hidden = true; $("#sheetBg").hidden = false; setTimeout(() => $("#keyInput").focus(), 50); }
+function closeSettings(){ $("#sheetBg").hidden = true; }
+function refreshSetup(){ $("#setup").hidden = !!getKey(); updateMeter(); }
+$("#gear").onclick = openSettings; $("#meter").onclick = openSettings; $("#setupBtn").onclick = openSettings;
+$("#sheetClose").onclick = closeSettings;
+$("#sheetBg").addEventListener("click", e => { if (e.target.id === "sheetBg") closeSettings(); });
+$("#keySave").onclick = () => {
+  const k = $("#keyInput").value.trim();
+  if (!k.startsWith("sk-ant-")) { const m = $("#sheetMsg"); m.hidden = false; m.style.color = "var(--err)"; m.textContent = "Keys start with sk-ant-. Copy the whole key from the Anthropic console."; return; }
+  setKey(k);
+  const c = credit(), bal = $("#balInput").value.trim(), pin = parseFloat($("#pIn").value), pout = parseFloat($("#pOut").value);
+  if (pin >= 0 && pout >= 0) c.price = { in: pin, out: pout };
+  const shown = c.balance === null ? "" : Math.max(0, c.balance - c.spent).toFixed(2);
+  if (bal === "") { c.balance = null; }
+  else if (bal !== shown) { c.balance = parseFloat(bal); c.spent = 0; c.requests = 0; c.syncedAt = Date.now(); }
+  saveCredit(c); refreshSetup(); closeSettings(); setStatus("");
+};
+$("#keyRemove").onclick = () => { setKey(""); $("#keyInput").value = ""; refreshSetup(); const m = $("#sheetMsg"); m.hidden = false; m.style.color = ""; m.textContent = "Key removed from this phone."; };
+refreshSetup();
+(function(){
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const installed = navigator.standalone === true || matchMedia("(display-mode: standalone)").matches;
+  let dismissed = false; try { dismissed = localStorage.getItem("hipun-install-x") === "1"; } catch {}
+  if (ios && !installed && !dismissed) $("#install").hidden = false;
+  $("#installX").onclick = () => { $("#install").hidden = true; try { localStorage.setItem("hipun-install-x", "1"); } catch {} };
+})();
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+renderWotd();
+current = EXAMPLE; render(EXAMPLE); showHist(); updatePill();
+</script>
+
+</body>
+</html>
