@@ -1,6 +1,6 @@
 # Hi Pun
 
-**Version 1.0.0 · October 25, 2026**
+**Version 1.0.1 · November 1, 2026**
 
 Hi Pun is a personal English ⇄ Hindi ⇄ Punjabi translator for iPhone. Type a phrase in any of the three languages, including romanized text, Hinglish/Punglish and slang. Hi Pun works out which language it is and gives you **casual**, **formal** and **texting** versions in both Hindi and Punjabi. Every version has a "learn more" breakdown, and a Word of the Day for each language helps you build vocabulary.
 
@@ -117,6 +117,14 @@ Each of these sends one request to Claude (model: `claude-sonnet-5-5`) and uses 
 ---
 
 ## Release notes
+
+### 1.0.1 — November 1, 2026
+**Fixes**
+- **Overlapping translations:** pressing Enter (or tapping a suggested phrase) while a translation was still running started a second request, and whichever answer arrived last was shown, even if it was for the older phrase. Hi Pun now runs one translation at a time and says "Still translating…" if you try another. A translation that finishes after you've picked something from Recent no longer replaces it.
+- **Malformed answers:** if Claude returned a translation, learn-more breakdown or Word of the Day breakdown with missing or wrongly shaped parts, it could be saved and then break Recent or that day's word every time it was opened. Every answer is now checked before it's shown or saved, and a bad one shows "The answer came back garbled" instead.
+- **Duplicate learn-more requests:** switching between the Hindi and Punjabi tabs while a learn-more breakdown was loading let you start the same request again, using credit twice. The request in progress is now kept and reused, the panel comes back still loading when you return to the tab, and the result appears even if it finished while you were on the other tab. The same applies to Word of the Day, whose cards can redraw on iPhone while voices load.
+- **Self-repair:** any broken entries already saved on the phone (in Recent or a saved Word of the Day breakdown) are cleared automatically the next time the app opens.
+- **Offline copy:** only pages that loaded successfully are saved for offline use, so an error page can no longer replace the good offline copy. The offline cache is refreshed (`hipun-v5`).
 
 ### 1.0.0 — October 25, 2026
 **First release.**

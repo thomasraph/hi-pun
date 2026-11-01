@@ -318,7 +318,7 @@ ul.pts{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;fon
       <button class="go" id="keySave"><span>Save</span></button>
     </div>
     <p class="sheet-msg" id="sheetMsg" hidden></p>
-    <p class="sheet-p small" style="text-align:center;color:var(--faint)">Hi Pun 1.0.0 · October 25, 2026</p>
+    <p class="sheet-p small" style="text-align:center;color:var(--faint)">Hi Pun 1.0.1 · November 1, 2026</p>
   </section>
 </div>
 <script>
@@ -487,22 +487,69 @@ function skeleton(){
   $("#out").innerHTML = `<div class="result"><div class="sk-card"><div class="sk" style="height:10px;width:90px"></div><div class="sk" style="height:20px;width:80%"></div></div><div class="sk" style="height:52px;border-radius:14px"></div>${card(85)}${card(75)}${card(65)}</div>`;
 }
 
+/* ---------- Shape checks: nothing malformed gets shown or saved ---------- */
+const isObj = x => !!x && typeof x === "object" && !Array.isArray(x);
+const str = x => (typeof x === "string" ? x : typeof x === "number" ? String(x) : "").trim();
+const arr = x => (Array.isArray(x) ? x : []);
+const strList = x => arr(x).map(str).filter(Boolean);
+const objList = (x, keys, must) => arr(x).filter(isObj).map(o => { const out = {}; keys.forEach(k => out[k] = str(o[k])); return out; }).filter(o => !must || o[must]);
+const BAD = { code: "invalid_json" };
+function normReg(x){ if (!isObj(x)) return null; const script = str(x.script); return script ? { script, roman: str(x.roman), when: str(x.when) } : null; }
+function normLang(x){
+  if (!isObj(x)) return null;
+  const out = {}; for (const k of ["casual", "formal", "texting"]) { const v = normReg(x[k]); if (!v) return null; out[k] = v; }
+  return out;
+}
+// Returns a clean translation or null. Every field render(), Recent and Learn more read is guaranteed present.
+function normTranslation(r){
+  if (!isObj(r) || !isObj(r.english)) return null;
+  const hindi = normLang(r.hindi), punjabi = normLang(r.punjabi);
+  const casual = str(r.english.casual), formal = str(r.english.formal) || casual;
+  if (!hindi || !punjabi || !casual) return null;
+  const detected = ["English", "Hindi", "Punjabi"].includes(str(r.detected)) ? str(r.detected) : "English";
+  return { detected, style: str(r.style), slang: objList(r.slang, ["term", "meaning"], "term"),
+    english: { casual, formal }, hindi, punjabi, note: str(r.note), input: str(r.input), example: r.example === true };
+}
+function normDive(d){
+  if (!isObj(d)) return null;
+  const out = { words: objList(d.words, ["word", "roman", "meaning"], "word"), grammar: strList(d.grammar),
+    pronunciation: strList(d.pronunciation), usage: strList(d.usage), alternatives: objList(d.alternatives, ["script", "roman", "when"], "script") };
+  return Object.values(out).some(a => a.length) ? out : null;
+}
+function normWotdData(d){
+  if (!isObj(d)) return null;
+  const out = { pos: str(d.pos), tenses: objList(d.tenses, ["tense", "script", "roman", "english"], "script"),
+    forms: objList(d.forms, ["label", "script", "roman"], "script"), uses: objList(d.uses, ["script", "roman", "english", "note"], "script"),
+    related: objList(d.related, ["script", "roman", "meaning"], "script"), tip: str(d.tip) };
+  return (out.tenses.length || out.forms.length || out.uses.length || out.related.length || out.tip) ? out : null;
+}
+
+/* ---------- Translate: one request at a time, newest wins ---------- */
+let translateSeq = 0, activeReq = 0, translating = "";
 async function translate(){
   const text = $("#input").value.trim();
   if (!text) { setStatus("Type something to translate.", true); $("#input").focus(); return; }
   const sample = await samplePromise;
   if (!sample) { setStatus("Hi Pun translates through Claude, which isn't available in this view. Open it in the Claude app or on claude.ai.", true); return; }
+  // The button being disabled doesn't stop Enter or the suggestion chips, so the function guards itself.
+  if (translating) { setStatus(`Still translating “${translating.length > 40 ? translating.slice(0, 40) + "…" : translating}”. Try again when it's done.`); return; }
+  const seq = ++translateSeq; activeReq = seq; translating = text;
   $("#go").disabled = true; setStatus(""); const prev = current; skeleton();
   try {
-    const r = await sample.json(TRANSLATE_PROMPT(text));
-    if (!r || !r.hindi || !r.punjabi || !r.english) throw { code: "invalid_json" };
-    r.input = text; current = r;
+    const raw = await sample.json(TRANSLATE_PROMPT(text));
+    if (seq !== translateSeq) return; // something newer (e.g. a Recent pick) took over; drop this answer
+    const r = normTranslation(raw);
+    if (!r) throw BAD;
+    r.input = text; r.example = false; current = r;
     tab = r.detected === "Punjabi" ? "punjabi" : "hindi";
     render(r); saveHist(r);
   } catch (e) {
+    if (seq !== translateSeq) return;
     current = prev; if (prev) render(prev); else $("#out").innerHTML = "";
     setStatus(copyFor(e && e.code), true);
-  } finally { $("#go").disabled = false; }
+  } finally {
+    if (activeReq === seq) { activeReq = 0; translating = ""; $("#go").disabled = false; }
+  }
 }
 
 /* ---------- Speech (only when the device has a matching voice) ---------- */
@@ -559,6 +606,7 @@ function render(r, quiet){
     const kind = b.dataset.learn, key = tab + "." + kind, card = b.closest(".reg");
     b.onclick = () => learnReg(r, tab, kind, card, b);
     if (r.open && r.open[key] && r.dives && r.dives[key]) { showRegDive(card, r.dives[key], tab, kind); b.setAttribute("aria-expanded", "true"); }
+    else if (r.open && r.open[key] && r.pending && r.pending[key]) { const box = card.querySelector(".reg-dive"); box.hidden = false; box.innerHTML = LOADING; b.setAttribute("aria-expanded", "true"); b.disabled = true; }
   });
 }
 function copyText(b){
@@ -596,24 +644,32 @@ Reply with only JSON:
 ${extra}
 2-3 alternatives in the SAME register. One or two sentences per point.`;
 };
+const LOADING = `<div class="sk" style="height:14px;width:40%"></div><div class="sk" style="height:12px;width:90%"></div><div class="sk" style="height:12px;width:75%"></div>`;
+// The card on screen right now for this translation/language/version, or null if it isn't showing
+function liveRegCard(r, lang, kind){ return (current === r && tab === lang) ? $("#out").querySelector(".reg." + kind) : null; }
 async function learnReg(r, lang, kind, card, btn){
   const box = card.querySelector(".reg-dive"), key = lang + "." + kind;
-  r.open = r.open || {}; r.dives = r.dives || {};
-  if (!box.hidden) { box.hidden = true; r.open[key] = false; btn.setAttribute("aria-expanded", "false"); return; }
+  r.open = r.open || {}; r.dives = r.dives || {}; r.pending = r.pending || {};
+  if (!box.hidden) { if (r.pending[key]) return; box.hidden = true; r.open[key] = false; btn.setAttribute("aria-expanded", "false"); return; }
   btn.setAttribute("aria-expanded", "true"); r.open[key] = true;
   if (r.dives[key]) { showRegDive(card, r.dives[key], lang, kind); return; }
   const sample = await samplePromise;
   box.hidden = false;
   if (!sample) { box.innerHTML = `<div class="status err">Learn more runs through Claude, which isn't available in this view.</div>`; return; }
-  box.innerHTML = `<div class="sk" style="height:14px;width:40%"></div><div class="sk" style="height:12px;width:90%"></div><div class="sk" style="height:12px;width:75%"></div>`;
-  btn.disabled = true;
-  try {
-    const d = await sample.json(DIVE_PROMPT(r, lang, kind));
-    r.dives[key] = d;
-    if (card.isConnected && r.open[key]) showRegDive(card, d, lang, kind);
-  } catch (e) {
-    box.innerHTML = `<div class="status err">${esc(copyFor(e && e.code))}</div>`; r.open[key] = false;
-  } finally { btn.disabled = false; }
+  box.innerHTML = LOADING; btn.disabled = true;
+  // Tab switches rebuild the cards, so the request in flight lives on the translation and is reused, never repeated
+  if (!r.pending[key]) {
+    r.pending[key] = sample.json(DIVE_PROMPT(r, lang, kind))
+      .then(raw => { const d = normDive(raw); if (!d) throw BAD; r.dives[key] = d; return d; })
+      .finally(() => { delete r.pending[key]; });
+  }
+  let d = null, err = null;
+  try { d = await r.pending[key]; } catch (e) { err = e; }
+  const live = liveRegCard(r, lang, kind);
+  if (!live) { if (err) r.open[key] = false; return; } // not on screen; render() restores it when you come back
+  const liveBtn = live.querySelector("[data-learn]"); liveBtn.disabled = false;
+  if (err) { r.open[key] = false; liveBtn.setAttribute("aria-expanded", "false"); const b = live.querySelector(".reg-dive"); b.hidden = false; b.innerHTML = `<div class="status err">${esc(copyFor(err.code))}</div>`; return; }
+  if (r.open[key]) showRegDive(live, d, lang, kind);
 }
 function showRegDive(card, d, lang, kind){
   const box = card.querySelector(".reg-dive"), pa = lang === "punjabi" && kind !== "texting" ? "pa" : "";
@@ -629,9 +685,15 @@ function showRegDive(card, d, lang, kind){
 }
 
 /* ---------- Recent (this browser only) ---------- */
-function loadHist(){ try { return JSON.parse(localStorage.getItem("bolo-hist-v2") || "[]"); } catch { return []; } }
+function loadHist(){
+  let raw = []; try { raw = JSON.parse(localStorage.getItem("bolo-hist-v2") || "[]"); } catch {}
+  const good = arr(raw).map(normTranslation).filter(x => x && x.input);
+  // Rewrite storage if anything was broken, so one bad answer can't keep breaking the app
+  if (!Array.isArray(raw) || good.length !== raw.length) { try { localStorage.setItem("bolo-hist-v2", JSON.stringify(good)); } catch {} }
+  return good;
+}
 function saveHist(r){
-  try { const clean = { ...r }; delete clean.dives; delete clean.open;
+  try { const clean = { ...r }; delete clean.dives; delete clean.open; delete clean.pending;
     const h = loadHist().filter(x => x.input !== r.input); h.unshift(clean); localStorage.setItem("bolo-hist-v2", JSON.stringify(h.slice(0, 8))); } catch {}
   showHist();
 }
@@ -642,6 +704,7 @@ function showHist(){
   el.innerHTML = `<div class="hist-h"><span class="kicker">Recent</span><button class="clear" id="histClear">Clear</button></div>` +
     h.map((x, i) => `<button class="hist-item" data-i="${i}"><span class="a">${esc(x.input)}</span><span class="b">${esc(x.detected === "English" ? x.hindi.casual.roman : x.english.casual)}</span></button>`).join("");
   el.querySelectorAll(".hist-item").forEach(b => b.onclick = () => {
+    translateSeq++; // a translation still in flight must not replace this pick
     current = h[+b.dataset.i]; tab = current.detected === "Punjabi" ? "punjabi" : "hindi";
     $("#input").value = current.input; updatePill(); render(current); setStatus(""); window.scrollTo({ top: 0, behavior: "smooth" });
   });
@@ -758,24 +821,36 @@ If it is NOT a verb, "tenses" is [] and "forms" lists its useful forms (plural, 
 "uses": 4-6 of the most common real-life expressions/collocations with this word, as natural sentences, each with a short note on when people say it. "related": 2-4 related or opposite words. "tip": one sentence on culture or a common mistake.`;
 
 function wotdCacheKey(w, lang){ return "hipun-wotd-" + lang + "-" + w[1]; }
-function readWotdCache(w, lang){ try { return JSON.parse(localStorage.getItem(wotdCacheKey(w, lang)) || "null"); } catch { return null; } }
+function readWotdCache(w, lang){
+  let raw = null; try { raw = JSON.parse(localStorage.getItem(wotdCacheKey(w, lang)) || "null"); } catch {}
+  if (raw === null) return null;
+  const d = normWotdData(raw);
+  if (!d) { try { localStorage.removeItem(wotdCacheKey(w, lang)); } catch {} } // broken entry: forget it and fetch fresh
+  return d;
+}
 function writeWotdCache(w, lang, d){ try { localStorage.setItem(wotdCacheKey(w, lang), JSON.stringify(d)); } catch {} }
+const wotdPending = {}, wotdOpen = {};
+function liveWordBox(lang){ const c = $("#wotd").querySelector(lang === "punjabi" ? ".wcard.pa" : ".wcard.hi"); return c ? { box: c.querySelector(".wlearn"), btn: c.querySelector("[data-wlearn]") } : null; }
 async function learnWord(w, lang, card, btn){
-  const box = card.querySelector(".wlearn");
-  if (!box.hidden) { box.hidden = true; btn.setAttribute("aria-expanded", "false"); return; }
-  box.hidden = false; btn.setAttribute("aria-expanded", "true");
+  const box = card.querySelector(".wlearn"), key = wotdCacheKey(w, lang);
+  if (!box.hidden) { if (wotdPending[key]) return; box.hidden = true; wotdOpen[key] = false; btn.setAttribute("aria-expanded", "false"); return; }
+  box.hidden = false; btn.setAttribute("aria-expanded", "true"); wotdOpen[key] = true;
   const cached = readWotdCache(w, lang);
   if (cached) { showWordLearn(box, cached, lang); return; }
   const sample = await samplePromise;
   if (!sample) { box.innerHTML = `<div class="status err">Learn more runs through Claude, which isn't available in this view.</div>`; return; }
-  box.innerHTML = `<div class="sk" style="height:14px;width:40%"></div><div class="sk" style="height:12px;width:90%"></div><div class="sk" style="height:12px;width:80%"></div><div class="sk" style="height:12px;width:70%"></div>`;
-  btn.disabled = true;
-  try {
-    const d = await sample.json(WOTD_PROMPT(w, lang));
-    writeWotdCache(w, lang, d);
-    if (!box.hidden) showWordLearn(box, d, lang);
-  } catch (e) { box.innerHTML = `<div class="status err">${esc(copyFor(e && e.code))}</div>`; }
-  finally { btn.disabled = false; }
+  box.innerHTML = LOADING + `<div class="sk" style="height:12px;width:70%"></div>`; btn.disabled = true;
+  if (!wotdPending[key]) {
+    wotdPending[key] = sample.json(WOTD_PROMPT(w, lang))
+      .then(raw => { const d = normWotdData(raw); if (!d) throw BAD; writeWotdCache(w, lang, d); return d; })
+      .finally(() => { delete wotdPending[key]; });
+  }
+  let d = null, err = null;
+  try { d = await wotdPending[key]; } catch (e) { err = e; }
+  const live = liveWordBox(lang); if (!live) return;
+  live.btn.disabled = false;
+  if (err) { wotdOpen[key] = false; live.btn.setAttribute("aria-expanded", "false"); live.box.hidden = false; live.box.innerHTML = `<div class="status err">${esc(copyFor(err.code))}</div>`; return; }
+  if (wotdOpen[key]) { live.box.hidden = false; live.btn.setAttribute("aria-expanded", "true"); showWordLearn(live.box, d, lang); }
 }
 function showWordLearn(box, d, lang){
   const f = lang === "punjabi" ? "pa" : "";
@@ -811,7 +886,13 @@ function renderWotd(){
   $("#wotd").innerHTML = wcard(hi, "hindi") + wcard(pa, "punjabi");
   $("#wotd").querySelectorAll("[data-wspeak]").forEach(b => b.onclick = () => speak(b.dataset.wspeak, b.dataset.wlang));
   $("#wotd").querySelectorAll("[data-wlearn]").forEach(b => {
-    const lang = b.dataset.wlearn; b.onclick = () => learnWord(lang === "hindi" ? hi : pa, lang, b.closest(".wcard"), b);
+    const lang = b.dataset.wlearn, w = lang === "hindi" ? hi : pa, key = wotdCacheKey(w, lang), box = b.closest(".wcard").querySelector(".wlearn");
+    b.onclick = () => learnWord(w, lang, b.closest(".wcard"), b);
+    if (wotdOpen[key]) {
+      b.setAttribute("aria-expanded", "true"); box.hidden = false;
+      const cached = readWotdCache(w, lang);
+      if (cached) showWordLearn(box, cached, lang); else if (wotdPending[key]) { box.innerHTML = LOADING; b.disabled = true; }
+    }
   });
   $("#wotd").querySelectorAll("[data-practice]").forEach(b => b.onclick = () => {
     $("#input").value = b.dataset.practice; updatePill(); translate();
